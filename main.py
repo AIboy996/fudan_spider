@@ -49,7 +49,7 @@ def warn_wrapper(threshold):
     return decorator
 
 
-@warn_wrapper(100)
+@warn_wrapper(20)
 def get_balance(se: Session):
     """
     获取一卡通余额
