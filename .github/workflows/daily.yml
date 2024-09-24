@@ -11,6 +11,7 @@ on:
 jobs:
     spider:
         runs-on: ubuntu-latest
+        environment: keys
         steps:
             - uses: actions/checkout@v4
             - uses: actions/setup-python@v5
@@ -18,3 +19,7 @@ jobs:
                 python-version: "3.11.x"
             - run: python3 -m pip install -r requirements.txt
             - run: python3 main.py
+              env:
+                fudan_username: ${{ secrets.FUDAN_USERNAME }}
+                fudan_password: ${{ secrets.FUDAN_PASSWORD }}
+                bark_token: ${{ secrets.BARK_TOKEN }}

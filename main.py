@@ -111,5 +111,5 @@ def get_dom_elec_surplus(se: Session):
 if __name__ == "__main__":
     se = Session()
     login(se)
-    get_balance(se)
-    get_dom_elec_surplus(se)
+    print(get_balance(se))
+    print(get_dom_elec_surplus(se))
