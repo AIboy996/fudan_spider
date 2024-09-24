@@ -7,27 +7,29 @@ from requests import Session
 from parsel import Selector
 
 
-def login(se: Session):
-    res = se.get("https://uis.fudan.edu.cn/authserver/login")
-    sel = Selector(res.text)
-    hidden_input = dict(
-        zip(
-            sel.css("#casLoginForm > input[type=hidden]::attr(name)").getall(),
-            sel.css("#casLoginForm > input[type=hidden]::attr(value)").getall(),
-        )
-    )
-    res = se.post(
-        url="https://uis.fudan.edu.cn/authserver/login",
-        data={
-            "username": os.getenv("fudan_username"),
-            "password": os.getenv("fudan_password"),
-            **hidden_input,
-        },
-    )
-    assert "安全退出" in res.text, "登陆失败"
+def retry(n: int):
+    """如果遇到报错，重新尝试n次"""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for i in range(1, n + 1):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    # 重试了n次依然有错误，直接抛出一个错误
+                    # 这会触发连锁的错误 During handling of the above exception, another exception occurred
+                    if i == n:
+                        raise Exception(
+                            f"Retry for {n} times. Still get error: {repr(e)}"
+                        )
+
+        return wrapper
+
+    return decorator
 
 
-def warn_wrapper(threshold):
+def warn_wrapper(threshold: float):
     """在函数返回值低于threshold的时候发出警告"""
 
     def decorator(func):
@@ -49,6 +51,28 @@ def warn_wrapper(threshold):
     return decorator
 
 
+@retry(3)
+def login(se: Session):
+    res = se.get("https://uis.fudan.edu.cn/authserver/login")
+    sel = Selector(res.text)
+    hidden_input = dict(
+        zip(
+            sel.css("#casLoginForm > input[type=hidden]::attr(name)").getall(),
+            sel.css("#casLoginForm > input[type=hidden]::attr(value)").getall(),
+        )
+    )
+    res = se.post(
+        url="https://uis.fudan.edu.cn/authserver/login",
+        data={
+            "username": os.getenv("fudan_username"),
+            "password": os.getenv("fudan_password"),
+            **hidden_input,
+        },
+    )
+    assert "安全退出" in res.text, "登陆失败"
+
+
+@retry(3)
 @warn_wrapper(20)
 def get_balance(se: Session):
     """
@@ -73,6 +97,7 @@ def get_balance(se: Session):
     return (res["data"][0][1] + "一卡通余额", float(res["data"][0][-1]))
 
 
+@retry(3)
 @warn_wrapper(30)
 def get_dom_elec_surplus(se: Session):
     """
