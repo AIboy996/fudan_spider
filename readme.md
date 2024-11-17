@@ -3,6 +3,7 @@
 - 查询脚本：Python
 - 手机通知：基于[Bark](https://bark.day.app/#/)
 - 每天自动运行：基于[GitHub actions](https://github.com/features/actions)
+    - 每60天需要更新仓库，否则无法自动运行
 
 ## 功能
 定时查询：
