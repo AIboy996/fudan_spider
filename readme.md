@@ -30,12 +30,12 @@ Bark通知示例：
 
 ## TODO
 
-- 增加更多定时查询内容
+- [ ] 增加更多定时查询内容
     - 绩点？
-- 增加更多通知方式【暂时仅支持Bark，iOS可用】
+- [ ] 增加更多通知方式【暂时仅支持Bark，iOS可用】
     - 邮件？
     - 安卓端的app？
-- 增加自动commit，避免workflow被disable
+- [x] 增加自动commit，避免workflow被disable
 
 **欢迎PR**
 
