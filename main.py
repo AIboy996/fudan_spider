@@ -77,24 +77,14 @@ def login(se: Session):
 def get_balance(se: Session):
     """
     获取一卡通余额
-    示例输出：
-    {
-        'draw': 0,
-        'recordsTotal': 1,
-        'recordsFiltered': 1,
-        'data': [['xxxx', # 学号
-                'xx', # 姓名
-                '正常',
-                '是(江湾;枫林;张江;邯郸)',
-                '2026-07-15',
-                '64.90']]
-    }
     """
-    # set headers
-    se.post("https://my.fudan.edu.cn/data_tables/ykt_xx.json")
-    # true request
-    res = se.post("https://my.fudan.edu.cn/data_tables/ykt_xx.json").json()
-    return (res["data"][0][1] + "一卡通余额", float(res["data"][0][-1]))
+    content = se.get("https://ecard.fudan.edu.cn/epay/myepay/index").text
+    sel = Selector(text=content)
+    name = sel.css(".custname::text").get()[3:].replace("！", "")
+    balance = sel.css(
+        "div.payway-box-bottom > div:nth-child(1) > p:nth-child(1)::text"
+    ).get()
+    return (name + "一卡通余额", float(balance))
 
 
 @retry(3)
