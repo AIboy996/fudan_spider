@@ -1,7 +1,9 @@
 import os
+import re
 from functools import wraps
 
 from bark import bark
+from rsa import rsa_encrypt
 
 from requests import Session
 from parsel import Selector
@@ -116,7 +118,59 @@ def get_dom_elec_surplus(se: Session):
         }
     }
     """
-    res = se.get("https://zlapp.fudan.edu.cn/fudanelec/wap/default/info").json()
+    # 不断重定向，直到拿到lck参数
+    res = se.get(
+        r"https://zlapp.fudan.edu.cn/fudanelec/wap/default/info", allow_redirects=False
+    )
+    while res.status_code == 302 or res.status_code == 301:
+        location = res.headers.get("Location")
+        if "lck=" in location:
+            break
+        res = se.get(location, allow_redirects=False)
+    # 提取lck参数
+    location = res.headers.get("Location")
+    lck = re.search("lck=(.*?)&", location).group(1)
+    res = se.get(location)
+    # 请求认证方法
+    queryAuthMethods = se.post(
+        "https://id.fudan.edu.cn/idp/authn/queryAuthMethods",
+        json={"entityId": "https://zlapp.fudan.edu.cn", "lck": lck},
+    )
+    # 使用账号密码认证
+    passwd_way = queryAuthMethods.json()["data"][0]
+    assert passwd_way["moduleCode"] == "userAndPwd"
+    authChainCode = passwd_way["authChainCode"]
+    # 请求rsa公钥
+    getJsPublicKey = se.get("https://id.fudan.edu.cn/idp/authn/getJsPublicKey")
+    pub_key = getJsPublicKey.json()["data"]
+    # 构造登录参数
+    d = {
+        "authModuleCode": "userAndPwd",
+        "authChainCode": authChainCode,
+        "entityId": "https://zlapp.fudan.edu.cn",
+        "requestType": "chain_type",
+        "lck": lck,
+        "authPara": {
+            "loginName": os.getenv("fudan_username"),
+            "password": rsa_encrypt(os.getenv("fudan_password"), pub_key),
+            "verifyCode": "",
+        },
+    }
+    # 提交登录请求
+    loginToken = se.post(
+        "https://id.fudan.edu.cn/idp/authn/authExecute", json=d, allow_redirects=False
+    )
+    # 登录完成之后请求zlapp的授权
+    res = se.post(
+        "https://id.fudan.edu.cn/idp/authCenter/authnEngine?locale=zh-CN",
+        data={"loginToken": loginToken.json()["loginToken"]},
+    )
+    # 授权平台会给我们一个直链
+    auth_link = (
+        re.search('locationValue = "(.*?)"', res.text).group(1).replace("&amp;", "&")
+    )
+    # 访问直链，获取电费信息
+    res = se.get(auth_link).json()
     return (
         res["d"]["xq"] + res["d"]["ssmc"] + res["d"]["fjmc"] + "电量余量",
         float(res["d"]["fj_surplus"]),
